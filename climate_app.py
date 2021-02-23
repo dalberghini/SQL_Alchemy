@@ -36,6 +36,24 @@ def precipation():
 
     return jsonify(rainfall)
 
+@app.route('/api/v1.0/stations')
+def stations():
+    session = Session(engine)
+    st_results = session.query(Measurement.station).group_by(Measurement.station).all()
+    session.close()
+    return jsonify(st_results)
+
+@app.route('/api/v1.0/tobs')
+def tobs():
+    session = Session(engine)
+    sel = [Measurement.station, func.count(Measurement.station)]
+    stat= session.query(*sel).group_by(Measurement.station).order_by(func.count(Measurement.station).desc()).all()
+    most_active_station = stat[0][0]
+    most_active_data = session.query(Measurement.date,Measurement.tobs).\
+        filter(Measurement.station == most_active_station).filter(Measurement.date >= dt.date(2016,8,23)).all()
+    active_resluts = dict(most_active_data)
+    session.close()
+    return jsonify(active_resluts)
 
 if __name__ == '__main__':
     app.run(debug = True)
