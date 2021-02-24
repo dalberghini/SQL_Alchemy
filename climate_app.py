@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, json, jsonify
 
 import numpy as np
 import sqlalchemy
@@ -17,15 +17,19 @@ Measurement = Base.classes.measurement
 
 app = Flask(__name__)
 
-@app.route('/')
+@app.route("/")
 def home():
     return (
-        f'Welcome to the Hawaii Climate Homepage!!'\
-        f'/api/v1.0/precipitation'
-        f'/api/v1.0/stations'
-        f'/api/v1.0/tobs'
-        f'/api/v1.0/<start>'
-        f'/api/v1.0/<start>/<end>')
+        f'Welcome to the Hawaii Climate Homepage!!<br/>'
+        f'Available Routes: <br/>'
+        f'/api/v1.0/precipitation<br/>'
+        f'/api/v1.0/stations<br/>'
+        f'/api/v1.0/tobs<br/>'
+        f'/api/v1.0/<start><br/>'
+        f'For the above method, choose a starting date to get the Minimum Temperature, Maximum Temperature and the Average Temperature in the following format YYYY,MM,DD.<br/>'
+        f'/api/v1.0/<start>/<end><br/>'
+        f'For the above path, choose a starting date in the YYYY,MM,DD format and then a / and then choose an ending date in the YYYY,MM,DD format to get the Minimum Temperature, Maximum Temperature and Average Temperature between those days. Happy Searching.'
+        )
 
 @app.route('/api/v1.0/precipitation')
 def precipation():
@@ -40,8 +44,9 @@ def precipation():
 def stations():
     session = Session(engine)
     st_results = session.query(Measurement.station).group_by(Measurement.station).all()
+    station_results = list(np.ravel(st_results))
     session.close()
-    return jsonify(st_results)
+    return jsonify(station_results)
 
 @app.route('/api/v1.0/tobs')
 def tobs():
@@ -54,6 +59,40 @@ def tobs():
     active_resluts = dict(most_active_data)
     session.close()
     return jsonify(active_resluts)
+
+@app.route('/api/v1.0/<start>')
+def start(start):
+    canonicalized = start.replace(",","-")
+    session = Session(engine)
+    something = [func.min(Measurement.tobs), func.max(Measurement.tobs), func.avg(Measurement.tobs)]
+    start_query = session.query(*something).filter(Measurement.date >= (canonicalized)).all()
+    session.close()
+    start_list = []
+    for tmin, tmax, tavg in start_query:
+        tagg_dict = {}
+        tagg_dict["TMIN"] = tmin
+        tagg_dict["TMAX"] = tmax
+        tagg_dict["TAVG"] = tavg
+        start_list.append(tagg_dict)
+    return(jsonify(start_list))
+
+@app.route('/api/v1.0/<start>/<end>')
+def end_date(start, end):
+    canonicalized = start.replace(",","-")
+    canonicalized1 = end.replace(",","-")
+    session = Session(engine)
+    something = [func.min(Measurement.tobs), func.max(Measurement.tobs), func.avg(Measurement.tobs)]
+    end_query = session.query(*something).filter(Measurement.date.between(canonicalized, canonicalized1)).all()
+    session.close()
+    end_list = []
+    for tmin, tmax, tavg in end_query:
+        tagg_dict = {}
+        tagg_dict["TMIN"] = tmin
+        tagg_dict["TMAX"] = tmax
+        tagg_dict["TAVG"] = tavg
+        end_list.append(tagg_dict)
+    return(jsonify(end_list))
+
 
 if __name__ == '__main__':
     app.run(debug = True)
